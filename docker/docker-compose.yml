@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  vision-inventory:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: vision-inventory-ai:latest
+    container_name: vision_inventory
+    env_file:
+      - ../.env
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models
+    # Para usar GPU (requiere nvidia-docker):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+  # Servicio opcional: Jupyter para experimentación
+  notebooks:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: vision-inventory-ai:latest
+    container_name: vision_notebooks
+    command: jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+    ports:
+      - "8888:8888"
+    volumes:
+      - ../notebooks:/app/notebooks
+      - ../data:/app/data
+      - ../models:/app/models
+    environment:
+      - JUPYTER_ENABLE_LAB=yes

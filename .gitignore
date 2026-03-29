@@ -1,4 +1,38 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Variables de entorno
 .env
+
+# Jupyter
 .ipynb_checkpoints/
+
+# Datos (no versionar binarios grandes)
+data/raw/*
+data/synthetic/*
+data/exports/*.csv
+data/inventory.db
+
+# Modelos entrenados
+models/*.pt
+models/*.onnx
+runs/
+
+# Docker
+docker/.env
+
+# IDEs
+.vscode/
+.idea/
+*.swp

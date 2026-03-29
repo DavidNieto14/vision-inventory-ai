@@ -1,0 +1,44 @@
+# ── Configuración de Experimento de Entrenamiento ────────────────────────────
+
+experiment:
+  name: exp_yolov8_pintura_v1
+  description: "Experimento inicial de detección de piezas en línea de pintura"
+  seed: 42
+
+dataset:
+  train_dir: data/annotated/train
+  val_dir: data/annotated/val
+  test_dir: data/annotated/test
+  image_size: 640
+  augment: true
+
+training:
+  epochs: 100
+  batch_size: 16
+  learning_rate: 0.01
+  optimizer: SGD              # SGD | Adam | AdamW
+  weight_decay: 0.0005
+  patience: 20                # épocas sin mejora para early stopping
+  device: cuda                # cuda | cpu | mps
+
+augmentation:
+  n_augmentations: 5          # versiones aumentadas por imagen original
+  horizontal_flip: true
+  brightness_contrast: true
+  hue_saturation: true
+  gaussian_noise: true
+  motion_blur: true
+  rotate_limit: 15
+
+evaluation:
+  conf_threshold: 0.50
+  iou_threshold: 0.50
+  metrics:
+    - precision
+    - recall
+    - mAP50
+    - mAP50-95
+
+logging:
+  save_dir: runs/
+  log_interval: 10            # épocas entre logs

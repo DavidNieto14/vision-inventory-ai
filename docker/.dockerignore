@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+**/__pycache__
+**/*.pyc
+**/*.pyo
+*.egg-info
+.pytest_cache
+.venv
+venv
+node_modules
+data/raw/*
+data/synthetic/*
+data/exports/*
+runs/
+*.log
