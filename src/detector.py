@@ -16,6 +16,7 @@ from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
+from ultralytics import YOLO
 
 # Mapeo de class_id a nombre de categoría del dominio
 CLASS_NAMES: Dict[int, str] = {
@@ -65,8 +66,6 @@ class PieceDetector:
         Raises:
             RuntimeError: Si el modelo no puede cargarse ni descargarse.
         """
-        from ultralytics import YOLO
-
         model_file = Path(self.model_path)
 
         if not model_file.exists():
