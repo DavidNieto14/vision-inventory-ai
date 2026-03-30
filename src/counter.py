@@ -1,91 +1,95 @@
 """
 counter.py
 ----------
-Lógica de conteo de piezas por categoría a partir de los resultados del detector.
+Lógica de conteo de piezas por categoría en una línea de pintura industrial.
 
 Responsabilidades:
-- Agregar detecciones por clase en un frame o secuencia de frames.
-- Mantener un conteo acumulado durante una sesión de video.
-- Exportar resúmenes de conteo a diccionario o DataFrame.
-- Resetear contadores entre sesiones.
+- Mantener conteos acumulados por categoría durante una sesión de video.
+- Filtrar detecciones por umbral de confianza mínimo configurable.
+- Mapear class_id numérico a nombre de categoría.
+- Reiniciar contadores entre lotes o sesiones.
 """
 
 from collections import defaultdict
-from typing import Optional
+from typing import Dict, List, Optional
 
-import pandas as pd
+# Mapeo de class_id a nombre de categoría
+CLASS_ID_TO_CATEGORY: Dict[int, str] = {
+    0: "CONFORME",
+    1: "VEC",
+    2: "SCRAP",
+    3: "RETRABAJO",
+}
+
+# Categorías válidas del sistema
+CATEGORIES = ("CONFORME", "VEC", "SCRAP", "RETRABAJO")
 
 
 class PieceCounter:
-    """Contador acumulado de piezas detectadas por categoría."""
+    """
+    Contador acumulado de piezas detectadas por categoría.
 
-    def __init__(self, class_names: Optional[list[str]] = None):
+    Filtra detecciones cuya confianza sea menor al umbral configurado
+    y acumula conteos por sesión. Soporta reset entre lotes.
+    """
+
+    def __init__(self, conf_threshold: float = 0.5):
         """
-        Inicializa el contador.
+        Inicializa el contador con todas las categorías en cero.
 
         Args:
-            class_names: Lista ordenada de nombres de clases del modelo.
-                         Si es None se infieren de los resultados en tiempo de ejecución.
+            conf_threshold: Umbral de confianza mínimo para aceptar una detección.
+                            Detecciones con confidence < conf_threshold son ignoradas.
+                            Por defecto 0.5.
         """
-        self.class_names = class_names or []
-        self._counts: dict[str, int] = defaultdict(int)
-        self._frame_history: list[dict] = []
+        self.conf_threshold = conf_threshold
+        self._counts: Dict[str, int] = defaultdict(int, {cat: 0 for cat in CATEGORIES})
 
-    def count_from_results(self, detections: list[dict]) -> dict[str, int]:
+    def update(self, detections_list: List[dict]) -> None:
         """
-        Cuenta las piezas presentes en una lista de detecciones de un solo frame.
+        Actualiza los contadores acumulados con las detecciones de un frame.
 
-        Args:
-            detections: Salida de PieceDetector.detect().
-
-        Returns:
-            Diccionario {class_name: count} para ese frame.
-        """
-        pass
-
-    def update(self, detections: list[dict], frame_id: Optional[int] = None) -> None:
-        """
-        Actualiza los contadores acumulados con las detecciones del frame actual.
+        Solo se contabilizan las detecciones cuya confianza supere el umbral.
+        Las detecciones con class_id desconocido son ignoradas.
 
         Args:
-            detections: Salida de PieceDetector.detect().
-            frame_id: Identificador del frame (opcional, para trazabilidad).
+            detections_list: Lista de diccionarios con claves:
+                - 'class_id'   (int): ID de clase del modelo.
+                - 'confidence' (float): Confianza de la predicción.
+                - 'bbox'       (list): Coordenadas [x1, y1, x2, y2].
         """
-        pass
+        for det in detections_list:
+            confidence = det.get("confidence", 0.0)
+            if confidence < self.conf_threshold:
+                continue
+            class_id = det.get("class_id")
+            category = CLASS_ID_TO_CATEGORY.get(class_id)
+            if category is None:
+                continue
+            self._counts[category] += 1
 
-    def get_totals(self) -> dict[str, int]:
+    def get_counts(self) -> Dict[str, int]:
         """
-        Retorna el conteo acumulado total de la sesión.
+        Retorna el conteo acumulado actual por categoría.
 
         Returns:
-            Diccionario {class_name: total_count}.
+            Diccionario con claves CONFORME, VEC, SCRAP, RETRABAJO
+            y sus respectivos conteos acumulados.
         """
-        pass
-
-    def get_history_dataframe(self) -> pd.DataFrame:
-        """
-        Retorna el historial de conteos por frame como DataFrame.
-
-        Returns:
-            DataFrame con columnas: frame_id, class_name, count.
-        """
-        pass
+        return dict(self._counts)
 
     def reset(self) -> None:
-        """Reinicia todos los contadores y el historial."""
-        pass
-
-    def export_csv(self, output_path: str) -> None:
         """
-        Exporta el historial de conteos a un archivo CSV.
+        Reinicia todos los contadores a cero.
 
-        Args:
-            output_path: Ruta del archivo CSV de salida.
+        Debe llamarse al inicio de cada nuevo lote o sesión de procesamiento.
         """
-        pass
+        self._counts = defaultdict(int, {cat: 0 for cat in CATEGORIES})
 
 
 if __name__ == "__main__":
-    counter = PieceCounter(class_names=["pieza_a", "pieza_b", "pieza_c"])
+    counter = PieceCounter()
     print("PieceCounter inicializado correctamente.")
-    print(f"  Clases registradas: {counter.class_names}")
+    print(f"  Umbral de confianza: {counter.conf_threshold}")
+    print(f"  Categorías: {list(CATEGORIES)}")
+    print(f"  Conteos iniciales: {counter.get_counts()}")

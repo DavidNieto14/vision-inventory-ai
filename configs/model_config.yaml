@@ -1,25 +1,10 @@
-# ── Configuración del Modelo YOLOv8 ──────────────────────────────────────────
-
-model:
-  architecture: yolov8n          # yolov8n | yolov8s | yolov8m | yolov8l | yolov8x
-  pretrained_weights: yolov8n.pt # pesos preentrenados de Ultralytics (COCO)
-  trained_weights: models/best.pt
-
-inference:
-  confidence_threshold: 0.50
-  iou_threshold: 0.45
-  image_size: 640                # tamaño de entrada cuadrado (px)
-  device: cpu                    # cpu | cuda | mps
-  batch_size: 1
-
-classes:
-  names:
-    - pieza_a
-    - pieza_b
-    - pieza_c
-  # Agrega o modifica clases según las piezas reales de la línea de pintura
-
-output:
-  save_images: false
-  save_video: false
-  output_dir: data/exports
+model_path: models/yolov8n.pt
+conf_threshold: 0.5
+iou_threshold: 0.45
+device: cpu
+img_size: 640
+class_names:
+  0: CONFORME
+  1: VEC
+  2: SCRAP
+  3: RETRABAJO

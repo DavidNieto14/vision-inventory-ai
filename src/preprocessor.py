@@ -1,160 +1,157 @@
 """
 preprocessor.py
 ---------------
-Preprocesamiento de imágenes y video antes de la inferencia.
+Preprocesamiento de video e imágenes para el pipeline de detección.
 
 Responsabilidades:
-- Redimensionar y normalizar imágenes al tamaño esperado por el modelo.
-- Aplicar correcciones de brillo, contraste y balance de color.
-- Extraer frames de un video a una tasa configurable.
-- Guardar frames preprocesados en disco.
+- Cargar y validar archivos de video.
+- Extraer metadatos del video (fps, resolución, duración).
+- Extraer frames a una tasa configurable y guardarlos en disco.
+- Redimensionar frames al tamaño requerido por el modelo.
 """
 
 from pathlib import Path
-from typing import Generator, Optional, Union
+from typing import Dict, Optional, Tuple
 
 import cv2
 import numpy as np
 
 
-class ImagePreprocessor:
-    """Preprocesador de imágenes estáticas para inferencia con YOLOv8."""
+class VideoPreprocessor:
+    """
+    Preprocesador de video para extracción y preparación de frames.
 
-    def __init__(self, target_size: tuple[int, int] = (640, 640)):
+    Proporciona utilidades para cargar videos, obtener sus metadatos,
+    extraer frames a intervalos regulares y redimensionar imágenes
+    al formato requerido por el modelo de detección.
+    """
+
+    def load_video(self, video_path: str) -> cv2.VideoCapture:
         """
-        Inicializa el preprocesador.
+        Valida la existencia del archivo de video y retorna un objeto VideoCapture.
 
         Args:
-            target_size: Tamaño (ancho, alto) al que se redimensionarán las imágenes.
-        """
-        self.target_size = target_size
-
-    def load_image(self, path: str) -> np.ndarray:
-        """
-        Carga una imagen desde disco en formato BGR.
-
-        Args:
-            path: Ruta al archivo de imagen.
+            video_path: Ruta al archivo de video (.mp4, .avi, etc.).
 
         Returns:
-            Array NumPy (H, W, 3) en BGR.
+            Objeto cv2.VideoCapture listo para leer frames.
 
         Raises:
-            FileNotFoundError: Si el archivo no existe.
-            ValueError: Si la imagen no puede leerse.
+            FileNotFoundError: Si el archivo no existe en la ruta indicada.
+            RuntimeError: Si OpenCV no puede abrir el archivo de video.
         """
-        pass
+        path = Path(video_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Archivo de video no encontrado: {video_path}")
 
-    def resize(self, image: np.ndarray) -> np.ndarray:
+        cap = cv2.VideoCapture(str(path))
+        if not cap.isOpened():
+            raise RuntimeError(f"OpenCV no pudo abrir el video: {video_path}")
+
+        return cap
+
+    def get_video_info(self, cap: cv2.VideoCapture) -> Dict:
         """
-        Redimensiona la imagen al tamaño objetivo manteniendo relación de aspecto (letterbox).
+        Extrae los metadatos principales de un objeto VideoCapture.
 
         Args:
-            image: Array BGR de entrada.
+            cap: Objeto cv2.VideoCapture abierto y válido.
 
         Returns:
-            Array BGR redimensionado con padding gris.
+            Diccionario con las claves:
+                - 'fps'              (float): Cuadros por segundo del video.
+                - 'total_frames'     (int): Número total de frames.
+                - 'width'            (int): Ancho del frame en píxeles.
+                - 'height'           (int): Alto del frame en píxeles.
+                - 'duration_seconds' (float): Duración total en segundos.
         """
-        pass
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        duration_seconds = total_frames / fps if fps > 0 else 0.0
 
-    def normalize(self, image: np.ndarray) -> np.ndarray:
+        return {
+            "fps": fps,
+            "total_frames": total_frames,
+            "width": width,
+            "height": height,
+            "duration_seconds": round(duration_seconds, 2),
+        }
+
+    def extract_frames(
+        self,
+        video_path: str,
+        output_dir: str,
+        sample_rate: int = 1,
+    ) -> int:
         """
-        Normaliza los valores de píxel al rango [0, 1].
+        Extrae frames del video a una tasa de muestreo y los guarda como imágenes JPG.
+
+        Por defecto extrae 1 frame por segundo. Los archivos se nombran con el
+        patrón frame_XXXXXX.jpg usando el número de frame como identificador.
 
         Args:
-            image: Array BGR uint8.
+            video_path: Ruta al archivo de video de entrada.
+            output_dir: Directorio donde se guardarán los frames extraídos.
+            sample_rate: Número de frames entre cada extracción. Con sample_rate=1
+                         se extrae 1 frame por segundo (basado en el FPS del video).
 
         Returns:
-            Array float32 en [0, 1].
-        """
-        pass
+            Número total de frames guardados en disco.
 
-    def enhance_contrast(
-        self, image: np.ndarray, clip_limit: float = 2.0, tile_grid: tuple = (8, 8)
+        Raises:
+            FileNotFoundError: Si el archivo de video no existe.
+            RuntimeError: Si el video no puede abrirse.
+        """
+        cap = self.load_video(video_path)
+        info = self.get_video_info(cap)
+        fps = info["fps"]
+
+        # Calcular el intervalo de frames para lograr sample_rate frames/segundo
+        frame_interval = max(1, int(fps / sample_rate)) if fps > 0 else 1
+
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        frames_saved = 0
+        frame_index = 0
+
+        try:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                if frame_index % frame_interval == 0:
+                    filename = output_path / f"frame_{frame_index:06d}.jpg"
+                    cv2.imwrite(str(filename), frame)
+                    frames_saved += 1
+
+                frame_index += 1
+        finally:
+            cap.release()
+
+        return frames_saved
+
+    def resize_frame(
+        self,
+        frame: np.ndarray,
+        target_size: Tuple[int, int] = (640, 640),
     ) -> np.ndarray:
         """
-        Aplica CLAHE (Contrast Limited Adaptive Histogram Equalization) al canal L (LAB).
+        Redimensiona un frame al tamaño objetivo usando interpolación lineal.
 
         Args:
-            image: Array BGR uint8.
-            clip_limit: Límite de recorte para CLAHE.
-            tile_grid: Tamaño de la cuadrícula de tiles.
+            frame: Array NumPy (H, W, C) en formato BGR.
+            target_size: Tupla (ancho, alto) del tamaño de salida. Por defecto (640, 640).
 
         Returns:
-            Imagen con contraste mejorado en BGR.
+            Array NumPy redimensionado al tamaño objetivo.
         """
-        pass
-
-    def preprocess(self, image: np.ndarray) -> np.ndarray:
-        """
-        Pipeline completo: resize → enhance_contrast.
-
-        Args:
-            image: Array BGR original.
-
-        Returns:
-            Array BGR preprocesado listo para el detector.
-        """
-        pass
-
-
-class VideoFrameExtractor:
-    """Extractor de frames desde archivos de video o streams."""
-
-    def __init__(self, source: Union[int, str], fps_target: Optional[float] = None):
-        """
-        Inicializa el extractor.
-
-        Args:
-            source: Índice de cámara o ruta/URL al video.
-            fps_target: FPS a los que extraer frames. Si es None, usa los FPS nativos del video.
-        """
-        self.source = source
-        self.fps_target = fps_target
-        self._cap: Optional[cv2.VideoCapture] = None
-
-    def open(self) -> None:
-        """Abre la fuente de video."""
-        pass
-
-    def close(self) -> None:
-        """Libera el recurso de video."""
-        pass
-
-    def frames(self) -> Generator[tuple[int, np.ndarray], None, None]:
-        """
-        Generador que produce (frame_id, frame_BGR) respetando fps_target.
-
-        Yields:
-            Tuplas (frame_id, array BGR).
-        """
-        pass
-
-    def save_frames(self, output_dir: str, prefix: str = "frame") -> int:
-        """
-        Extrae y guarda todos los frames en disco.
-
-        Args:
-            output_dir: Directorio de salida.
-            prefix: Prefijo de nombre para los archivos.
-
-        Returns:
-            Número total de frames guardados.
-        """
-        pass
-
-    def __enter__(self):
-        self.open()
-        return self
-
-    def __exit__(self, *args):
-        self.close()
+        return cv2.resize(frame, target_size, interpolation=cv2.INTER_LINEAR)
 
 
 if __name__ == "__main__":
-    preprocessor = ImagePreprocessor(target_size=(640, 640))
-    print("ImagePreprocessor inicializado.")
-    print(f"  Target size: {preprocessor.target_size}")
-
-    extractor = VideoFrameExtractor(source=0)
-    print("VideoFrameExtractor inicializado.")
+    preprocessor = VideoPreprocessor()
+    print("VideoPreprocessor inicializado correctamente.")

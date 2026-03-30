@@ -1,13 +1,3 @@
-# ── Configuración de Base de Datos SQLite ────────────────────────────────────
-
-database:
-  path: data/inventory.db
-  timeout: 30                    # segundos de espera para adquirir el lock
-
-tables:
-  detections: detections
-  sessions: sessions
-
-export:
-  csv_dir: data/exports
-  date_format: "%Y-%m-%d %H:%M:%S"
+db_path: data/exports/inventory.db
+exports_path: data/exports/
+batch_prefix: "LOTE_"
