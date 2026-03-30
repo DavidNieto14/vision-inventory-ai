@@ -1,0 +1,169 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 620" width="780" height="620" font-family="Segoe UI, Arial, sans-serif">
+
+  <!-- Background -->
+  <rect width="780" height="620" fill="#0f1117" rx="12"/>
+
+  <!-- Title -->
+  <text x="390" y="38" text-anchor="middle" font-size="18" font-weight="bold" fill="#e2e8f0" letter-spacing="1">Arquitectura del Sistema — vision-inventory-ai</text>
+  <text x="390" y="58" text-anchor="middle" font-size="12" fill="#64748b">Pipeline de Detección y Conteo de Piezas en Línea de Pintura Industrial</text>
+
+  <!-- Flow arrows between layers -->
+  <!-- Arrow 1->2 -->
+  <line x1="390" y1="165" x2="390" y2="188" stroke="#475569" stroke-width="2" stroke-dasharray="4,3"/>
+  <polygon points="390,194 385,184 395,184" fill="#475569"/>
+  <!-- Arrow 2->3 -->
+  <line x1="390" y1="297" x2="390" y2="320" stroke="#475569" stroke-width="2" stroke-dasharray="4,3"/>
+  <polygon points="390,326 385,316 395,316" fill="#475569"/>
+  <!-- Arrow 3->4 -->
+  <line x1="390" y1="429" x2="390" y2="452" stroke="#475569" stroke-width="2" stroke-dasharray="4,3"/>
+  <polygon points="390,458 385,448 395,448" fill="#475569"/>
+
+  <!-- ── CAPA 1: ADQUISICIÓN ── -->
+  <rect x="40" y="78" width="700" height="87" rx="8" fill="#0c1a2e" stroke="#1d4ed8" stroke-width="1.5"/>
+  <!-- Left badge -->
+  <rect x="40" y="78" width="6" height="87" rx="4" fill="#1d4ed8"/>
+  <!-- Layer label -->
+  <text x="64" y="100" font-size="10" font-weight="bold" fill="#93c5fd" letter-spacing="2">CAPA 1</text>
+  <text x="64" y="116" font-size="14" font-weight="bold" fill="#bfdbfe">ADQUISICIÓN</text>
+  <text x="64" y="131" font-size="10" fill="#60a5fa">Captura y preprocesamiento de video</text>
+
+  <!-- OpenCV box -->
+  <rect x="310" y="88" width="140" height="57" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1"/>
+  <text x="380" y="110" text-anchor="middle" font-size="11" font-weight="bold" fill="#93c5fd">OpenCV</text>
+  <text x="380" y="126" text-anchor="middle" font-size="10" fill="#7dd3fc">VideoCapture</text>
+  <text x="380" y="138" text-anchor="middle" font-size="9" fill="#475569">cv2 · frame decode</text>
+
+  <!-- VideoPreprocessor box -->
+  <rect x="468" y="88" width="160" height="57" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1"/>
+  <text x="548" y="110" text-anchor="middle" font-size="11" font-weight="bold" fill="#93c5fd">VideoPreprocessor</text>
+  <text x="548" y="126" text-anchor="middle" font-size="10" fill="#7dd3fc">resize · normalize</text>
+  <text x="548" y="138" text-anchor="middle" font-size="9" fill="#475569">640×640 · BGR→RGB</text>
+
+  <!-- Input source -->
+  <rect x="150" y="95" width="130" height="43" rx="6" fill="#172032" stroke="#1d4ed8" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="215" y="113" text-anchor="middle" font-size="10" fill="#60a5fa">video_linea_0X.mp4</text>
+  <text x="215" y="128" text-anchor="middle" font-size="9" fill="#475569">data/raw/</text>
+
+  <!-- Arrow input->opencv -->
+  <line x1="280" y1="117" x2="308" y2="117" stroke="#1d4ed8" stroke-width="1.5"/>
+  <polygon points="309,117 303,113 303,121" fill="#1d4ed8"/>
+  <!-- Arrow opencv->preprocessor -->
+  <line x1="450" y1="117" x2="467" y2="117" stroke="#1d4ed8" stroke-width="1.5"/>
+  <polygon points="468,117 462,113 462,121" fill="#1d4ed8"/>
+
+  <!-- ── CAPA 2: DETECCIÓN ── -->
+  <rect x="40" y="194" width="700" height="103" rx="8" fill="#0d1f1a" stroke="#059669" stroke-width="1.5"/>
+  <rect x="40" y="194" width="6" height="103" rx="4" fill="#059669"/>
+  <text x="64" y="216" font-size="10" font-weight="bold" fill="#6ee7b7" letter-spacing="2">CAPA 2</text>
+  <text x="64" y="232" font-size="14" font-weight="bold" fill="#a7f3d0">DETECCIÓN</text>
+  <text x="64" y="247" font-size="10" fill="#34d399">Inferencia de objetos por frame</text>
+
+  <!-- YOLOv8n box -->
+  <rect x="310" y="205" width="140" height="72" rx="6" fill="#0f2d21" stroke="#10b981" stroke-width="1"/>
+  <text x="380" y="227" text-anchor="middle" font-size="11" font-weight="bold" fill="#6ee7b7">YOLOv8n</text>
+  <text x="380" y="243" text-anchor="middle" font-size="10" fill="#34d399">yolov8n.pt</text>
+  <text x="380" y="257" text-anchor="middle" font-size="9" fill="#475569">conf ≥ 0.5 · CPU</text>
+  <text x="380" y="269" text-anchor="middle" font-size="9" fill="#475569">COCO pretrained</text>
+
+  <!-- PieceDetector box -->
+  <rect x="468" y="205" width="160" height="72" rx="6" fill="#0f2d21" stroke="#10b981" stroke-width="1"/>
+  <text x="548" y="227" text-anchor="middle" font-size="11" font-weight="bold" fill="#6ee7b7">PieceDetector</text>
+  <text x="548" y="243" text-anchor="middle" font-size="10" fill="#34d399">process_video()</text>
+  <text x="548" y="257" text-anchor="middle" font-size="9" fill="#475569">bbox · confidence</text>
+  <text x="548" y="269" text-anchor="middle" font-size="9" fill="#475569">class_id por frame</text>
+
+  <!-- Arrow -->
+  <line x1="450" y1="241" x2="467" y2="241" stroke="#059669" stroke-width="1.5"/>
+  <polygon points="468,241 462,237 462,245" fill="#059669"/>
+
+  <!-- Metrics output -->
+  <rect x="648" y="212" width="82" height="58" rx="5" fill="#0a2218" stroke="#059669" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="689" y="232" text-anchor="middle" font-size="9" fill="#34d399">total_frames</text>
+  <text x="689" y="245" text-anchor="middle" font-size="9" fill="#34d399">detections</text>
+  <text x="689" y="258" text-anchor="middle" font-size="9" fill="#34d399">duration_s</text>
+  <line x1="628" y1="241" x2="647" y2="241" stroke="#059669" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+  <!-- ── CAPA 3: CONTEO ── -->
+  <rect x="40" y="326" width="700" height="103" rx="8" fill="#1a1208" stroke="#d97706" stroke-width="1.5"/>
+  <rect x="40" y="326" width="6" height="103" rx="4" fill="#d97706"/>
+  <text x="64" y="348" font-size="10" font-weight="bold" fill="#fcd34d" letter-spacing="2">CAPA 3</text>
+  <text x="64" y="364" font-size="14" font-weight="bold" fill="#fde68a">CONTEO</text>
+  <text x="64" y="379" font-size="10" fill="#fbbf24">Clasificación y agregación por categoría</text>
+
+  <!-- PieceCounter box -->
+  <rect x="150" y="337" width="150" height="72" rx="6" fill="#2d1f07" stroke="#f59e0b" stroke-width="1"/>
+  <text x="225" y="358" text-anchor="middle" font-size="11" font-weight="bold" fill="#fcd34d">PieceCounter</text>
+  <text x="225" y="374" text-anchor="middle" font-size="10" fill="#fbbf24">classify_detection()</text>
+  <text x="225" y="388" text-anchor="middle" font-size="9" fill="#475569">conf_threshold=0.5</text>
+  <text x="225" y="400" text-anchor="middle" font-size="9" fill="#475569">label → categoría</text>
+
+  <!-- 4 category boxes -->
+  <rect x="320" y="337" width="82" height="34" rx="5" fill="#1a3a1a" stroke="#22c55e" stroke-width="1"/>
+  <text x="361" y="350" text-anchor="middle" font-size="10" font-weight="bold" fill="#86efac">CONFORME</text>
+  <text x="361" y="364" text-anchor="middle" font-size="9" fill="#4ade80">pieza OK</text>
+
+  <rect x="412" y="337" width="82" height="34" rx="5" fill="#1a2a3a" stroke="#60a5fa" stroke-width="1"/>
+  <text x="453" y="350" text-anchor="middle" font-size="10" font-weight="bold" fill="#93c5fd">VEC</text>
+  <text x="453" y="364" text-anchor="middle" font-size="9" fill="#7dd3fc">verificar</text>
+
+  <rect x="320" y="381" width="82" height="34" rx="5" fill="#3a1a1a" stroke="#f87171" stroke-width="1"/>
+  <text x="361" y="394" text-anchor="middle" font-size="10" font-weight="bold" fill="#fca5a5">SCRAP</text>
+  <text x="361" y="408" text-anchor="middle" font-size="9" fill="#f87171">descarte</text>
+
+  <rect x="412" y="381" width="82" height="34" rx="5" fill="#2a1a3a" stroke="#c084fc" stroke-width="1"/>
+  <text x="453" y="394" text-anchor="middle" font-size="10" font-weight="bold" fill="#d8b4fe">RETRABAJO</text>
+  <text x="453" y="408" text-anchor="middle" font-size="9" fill="#c084fc">reprocesar</text>
+
+  <!-- Arrow PieceCounter -> categories -->
+  <line x1="300" y1="373" x2="318" y2="358" stroke="#d97706" stroke-width="1.5"/>
+  <line x1="300" y1="373" x2="318" y2="398" stroke="#d97706" stroke-width="1.5"/>
+  <line x1="300" y1="373" x2="410" y2="354" stroke="#d97706" stroke-width="1.5"/>
+  <line x1="300" y1="373" x2="410" y2="398" stroke="#d97706" stroke-width="1.5"/>
+
+  <!-- counts dict -->
+  <rect x="508" y="337" width="110" height="72" rx="5" fill="#1f1505" stroke="#d97706" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="563" y="356" text-anchor="middle" font-size="9" fill="#fbbf24">counts dict</text>
+  <text x="563" y="370" text-anchor="middle" font-size="9" fill="#fde68a">"CONFORME": n</text>
+  <text x="563" y="383" text-anchor="middle" font-size="9" fill="#bfdbfe">"VEC": n</text>
+  <text x="563" y="396" text-anchor="middle" font-size="9" fill="#fca5a5">"SCRAP": n</text>
+  <text x="563" y="409" text-anchor="middle" font-size="9" fill="#d8b4fe">"RETRABAJO": n</text>
+  <line x1="494" y1="373" x2="507" y2="373" stroke="#d97706" stroke-width="1.5" stroke-dasharray="3,2"/>
+
+  <!-- ── CAPA 4: PERSISTENCIA ── -->
+  <rect x="40" y="458" width="700" height="103" rx="8" fill="#170c1f" stroke="#7c3aed" stroke-width="1.5"/>
+  <rect x="40" y="458" width="6" height="103" rx="4" fill="#7c3aed"/>
+  <text x="64" y="480" font-size="10" font-weight="bold" fill="#c4b5fd" letter-spacing="2">CAPA 4</text>
+  <text x="64" y="496" font-size="14" font-weight="bold" fill="#ddd6fe">PERSISTENCIA</text>
+  <text x="64" y="511" font-size="10" fill="#a78bfa">Almacenamiento y exportación de resultados</text>
+
+  <!-- InventoryDB box -->
+  <rect x="150" y="470" width="150" height="72" rx="6" fill="#2a1547" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="225" y="491" text-anchor="middle" font-size="11" font-weight="bold" fill="#c4b5fd">InventoryDB</text>
+  <text x="225" y="507" text-anchor="middle" font-size="10" fill="#a78bfa">save_detection()</text>
+  <text x="225" y="521" text-anchor="middle" font-size="9" fill="#475569">batch_id · timestamp</text>
+  <text x="225" y="533" text-anchor="middle" font-size="9" fill="#475569">confidence · label</text>
+
+  <!-- SQLite box -->
+  <rect x="320" y="470" width="130" height="72" rx="6" fill="#1f1035" stroke="#7c3aed" stroke-width="1"/>
+  <text x="385" y="491" text-anchor="middle" font-size="11" font-weight="bold" fill="#c4b5fd">SQLite</text>
+  <text x="385" y="507" text-anchor="middle" font-size="10" fill="#a78bfa">experiment.db</text>
+  <text x="385" y="521" text-anchor="middle" font-size="9" fill="#475569">detections table</text>
+  <text x="385" y="533" text-anchor="middle" font-size="9" fill="#475569">data/exports/</text>
+
+  <!-- CSV box -->
+  <rect x="462" y="470" width="130" height="72" rx="6" fill="#1f1035" stroke="#7c3aed" stroke-width="1"/>
+  <text x="527" y="491" text-anchor="middle" font-size="11" font-weight="bold" fill="#c4b5fd">CSV Export</text>
+  <text x="527" y="507" text-anchor="middle" font-size="10" fill="#a78bfa">experiment_results</text>
+  <text x="527" y="521" text-anchor="middle" font-size="9" fill="#475569">9 filas · 899 bytes</text>
+  <text x="527" y="533" text-anchor="middle" font-size="9" fill="#475569">data/exports/</text>
+
+  <!-- Arrows -->
+  <line x1="300" y1="506" x2="319" y2="506" stroke="#7c3aed" stroke-width="1.5"/>
+  <polygon points="320,506 314,502 314,510" fill="#7c3aed"/>
+  <line x1="450" y1="506" x2="461" y2="506" stroke="#7c3aed" stroke-width="1.5"/>
+  <polygon points="462,506 456,502 456,510" fill="#7c3aed"/>
+
+  <!-- Footer -->
+  <text x="390" y="600" text-anchor="middle" font-size="10" fill="#334155">YOLOv8n pretrained · OpenCV 4.x · SQLite 3 · Python 3.10+ · CPU inference</text>
+
+</svg>
