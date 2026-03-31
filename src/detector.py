@@ -269,6 +269,7 @@ class PieceDetector:
         batch_id: str,
         db,
         counter,
+        roi: Optional[tuple] = None,
     ) -> dict:
         """
         Procesa un video completo frame a frame integrando detección, conteo y persistencia.
@@ -284,6 +285,8 @@ class PieceDetector:
             batch_id: Identificador del lote de producción para este video.
             db: Instancia de InventoryDB para persistencia.
             counter: Instancia de PieceCounter para conteo acumulado.
+            roi: Tupla opcional (x1, y1, x2, y2) que define la región de interés para detecciones.
+                 Si se provee, solo se consideran detecciones dentro de esta región.
 
         Returns:
             Diccionario con métricas finales:
@@ -317,7 +320,7 @@ class PieceDetector:
                 if not ret:
                     break
 
-                detections = self.detect_frame(frame)
+                detections = self.detect_frame(frame, roi=roi)
                 counter.update(detections)
 
                 for det in detections:

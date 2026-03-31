@@ -134,6 +134,7 @@ def run_single_experiment(
     batch_id: str,
     run_number: int,
     model_cfg: dict,
+    roi: dict = None,
 ) -> Dict:
     """
     Ejecuta una corrida individual del experimento sobre un video.
@@ -148,6 +149,7 @@ def run_single_experiment(
         batch_id: Identificador único de lote para esta corrida.
         run_number: Número de corrida (1, 2 o 3).
         model_cfg: Diccionario con parámetros del modelo (model_path, conf_threshold, device).
+        roi: Diccionario opcional con configuración del ROI (x1, y1, x2, y2).
 
     Returns:
         Diccionario con las métricas de la corrida:
@@ -174,11 +176,17 @@ def run_single_experiment(
         device=model_cfg["device"],
     )
 
+    # Construir tupla ROI si está configurado
+    roi_tuple = None
+    if roi is not None and roi.get("enabled", False):
+        roi_tuple = (roi["x1"], roi["y1"], roi["x2"], roi["y2"])
+
     metrics = detector.process_video(
         video_path=video_path,
         batch_id=batch_id,
         db=db,
         counter=counter,
+        roi=roi_tuple,
     )
 
     counts = metrics["counts"]
@@ -380,6 +388,14 @@ def main() -> None:
     print(f"  conf_thresh : {model_cfg['conf_threshold']}")
     print(f"  device      : {model_cfg['device']}")
 
+    # ── Extraer ROI de configuración ──────────────────────────────────────────
+    roi_cfg = model_cfg.get("roi", {})
+    if roi_cfg.get("enabled", False):
+        print(f"  ROI         : enabled ({roi_cfg['x1']},{roi_cfg['y1']}) → ({roi_cfg['x2']},{roi_cfg['y2']})")
+    else:
+        print(f"  ROI         : disabled")
+        roi_cfg = None
+
     EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
     RAW_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -426,6 +442,7 @@ def main() -> None:
                 batch_id=batch_id,
                 run_number=run,
                 model_cfg=model_cfg,
+                roi=roi_cfg,
             )
             todos_resultados.append(resultado)
 
