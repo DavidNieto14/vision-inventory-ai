@@ -10,7 +10,7 @@ class_names:
   3: RETRABAJO
 roi:
   enabled: true
-  x1: 350
+  x1: 1000
   y1: 80
-  x2: 950
-  y2: 420
+  x2: 1900
+  y2: 620
