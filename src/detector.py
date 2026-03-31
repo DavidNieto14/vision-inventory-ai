@@ -26,6 +26,15 @@ CLASS_NAMES: Dict[int, str] = {
     3: "RETRABAJO",
 }
 
+# Nombres de clases COCO relevantes para visualización
+COCO_NAMES: Dict[int, str] = {
+    0: "person", 1: "bicycle", 2: "car", 3: "motorcycle",
+    5: "bus", 7: "truck", 39: "bottle", 41: "cup",
+    56: "chair", 57: "couch", 58: "potted plant",
+    59: "bed", 60: "dining table", 62: "tv", 63: "laptop",
+    67: "cell phone", 72: "tv",
+}
+
 
 class PieceDetector:
     """
@@ -80,25 +89,42 @@ class PieceDetector:
 
         print(f"[INFO] Modelo cargado: {self.model_path} | device={self.device}")
 
-    def detect_frame(self, frame: np.ndarray) -> List[dict]:
+    def detect_frame(
+        self,
+        frame: np.ndarray,
+        roi: Optional[tuple] = None,
+    ) -> List[dict]:
         """
-        Ejecuta detección sobre un frame individual.
+        Ejecuta detección sobre un frame individual, con soporte opcional de ROI.
 
         Args:
             frame: Array NumPy (H, W, 3) en formato BGR.
+            roi: Tupla (x1, y1, x2, y2) en píxeles que define la región de interés.
+                 Si se provee, la inferencia se ejecuta sobre el recorte del ROI y
+                 las coordenadas se retraducen al espacio del frame completo.
+                 Se descartan detecciones cuyo centro quede fuera del ROI.
 
         Returns:
             Lista de diccionarios, uno por detección, con claves:
-                - 'class_id'     (int): ID numérico de la clase.
-                - 'confidence'   (float): Confianza de la predicción.
-                - 'bbox'         (list[float]): [x1, y1, x2, y2] en píxeles.
-                - 'category_name' (str): Nombre de la categoría según CLASS_NAMES.
+                - 'class_id'      (int): ID numérico de la clase.
+                - 'confidence'    (float): Confianza de la predicción.
+                - 'bbox'          (list[float]): [x1, y1, x2, y2] en píxeles del frame completo.
+                - 'category_name' (str): Nombre de la categoría según CLASS_NAMES / COCO_NAMES.
         """
         if self.model is None:
             raise RuntimeError("El modelo no está cargado. Llame a load_model() primero.")
 
+        if roi is not None:
+            rx1, ry1, rx2, ry2 = (int(v) for v in roi)
+            h, w = frame.shape[:2]
+            rx1, ry1 = max(rx1, 0), max(ry1, 0)
+            rx2, ry2 = min(rx2, w), min(ry2, h)
+            source = frame[ry1:ry2, rx1:rx2]
+        else:
+            source = frame
+
         results = self.model.predict(
-            source=frame,
+            source=source,
             conf=self.conf_threshold,
             device=self.device,
             verbose=False,
@@ -112,7 +138,21 @@ class PieceDetector:
                 class_id = int(box.cls.item())
                 confidence = float(box.conf.item())
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
-                category_name = CLASS_NAMES.get(class_id, f"CLASE_{class_id}")
+
+                # Retransladar coordenadas al espacio del frame completo
+                if roi is not None:
+                    x1 += rx1; y1 += ry1
+                    x2 += rx1; y2 += ry1
+                    # Descartar si el centro queda fuera del ROI
+                    cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
+                    if not (rx1 <= cx <= rx2 and ry1 <= cy <= ry2):
+                        continue
+
+                category_name = (
+                    CLASS_NAMES.get(class_id)
+                    or COCO_NAMES.get(class_id)
+                    or f"objeto_clase_{class_id}"
+                )
                 detections.append(
                     {
                         "class_id": class_id,
@@ -123,6 +163,105 @@ class PieceDetector:
                 )
 
         return detections
+
+    # Colores BGR por categoría
+    _CATEGORY_COLORS: Dict[str, tuple] = {
+        "CONFORME": (0, 255, 0),
+        "VEC":      (0, 255, 255),
+        "SCRAP":    (0, 0, 255),
+        "RETRABAJO":(0, 165, 255),
+    }
+
+    def visualize_detections(
+        self,
+        frame: np.ndarray,
+        detections: List[dict],
+        roi: Optional[tuple] = None,
+    ) -> np.ndarray:
+        """
+        Dibuja bounding boxes y etiquetas sobre el frame para cada detección.
+
+        Para cada detección dibuja:
+        - Un rectángulo de color según la categoría.
+        - Un recuadro semitransparente detrás de la etiqueta.
+        - El nombre de la categoría y el confidence score.
+
+        Args:
+            frame: Array NumPy (H, W, 3) BGR original (no se modifica in-place).
+            detections: Lista de dicts retornada por detect_frame().
+            roi: Tupla opcional (x1, y1, x2, y2). Si se provee, dibuja el rectángulo
+                 del ROI en azul sobre el frame anotado.
+
+        Returns:
+            Nuevo frame anotado como numpy array (H, W, 3) BGR.
+        """
+        annotated = frame.copy()
+        overlay = frame.copy()
+
+        # Dibujar ROI en azul antes de las bboxes
+        if roi is not None:
+            rx1, ry1, rx2, ry2 = (int(v) for v in roi)
+            # Rectángulo punteado: líneas discontinuas dibujadas manualmente
+            dash_len, gap_len = 12, 6
+            roi_color = (255, 80, 0)  # azul BGR
+            for side in ["top", "bottom", "left", "right"]:
+                if side == "top":
+                    pts = [(x, ry1) for x in range(rx1, rx2, dash_len + gap_len)]
+                    for sx in pts:
+                        cv2.line(annotated, sx, (min(sx[0] + dash_len, rx2), ry1), roi_color, 2)
+                elif side == "bottom":
+                    pts = [(x, ry2) for x in range(rx1, rx2, dash_len + gap_len)]
+                    for sx in pts:
+                        cv2.line(annotated, sx, (min(sx[0] + dash_len, rx2), ry2), roi_color, 2)
+                elif side == "left":
+                    pts = [(rx1, y) for y in range(ry1, ry2, dash_len + gap_len)]
+                    for sy in pts:
+                        cv2.line(annotated, sy, (rx1, min(sy[1] + dash_len, ry2)), roi_color, 2)
+                elif side == "right":
+                    pts = [(rx2, y) for y in range(ry1, ry2, dash_len + gap_len)]
+                    for sy in pts:
+                        cv2.line(annotated, sy, (rx2, min(sy[1] + dash_len, ry2)), roi_color, 2)
+            cv2.putText(annotated, "ROI", (rx1 + 4, ry1 - 6),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, roi_color, 1, cv2.LINE_AA)
+        overlay = annotated.copy()
+
+        for det in detections:
+            category = det["category_name"]
+            conf = det["confidence"]
+            x1, y1, x2, y2 = (int(v) for v in det["bbox"])
+            color = self._CATEGORY_COLORS.get(category, (200, 200, 200))
+
+            # Bounding box
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, thickness=2)
+
+            # Etiqueta con confidence
+            label = f"{category} {conf:.2f}"
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.55
+            thickness = 1
+            (tw, th), baseline = cv2.getTextSize(label, font, font_scale, thickness)
+
+            # Recuadro semitransparente detrás del texto
+            pad = 3
+            tx1, ty1 = x1, max(y1 - th - baseline - pad * 2, 0)
+            tx2, ty2 = x1 + tw + pad * 2, max(y1, th + baseline + pad * 2)
+            cv2.rectangle(overlay, (tx1, ty1), (tx2, ty2), color, thickness=-1)
+            cv2.addWeighted(overlay, 0.35, annotated, 0.65, 0, annotated)
+            # Actualizar overlay para siguiente iteración
+            overlay = annotated.copy()
+
+            cv2.putText(
+                annotated,
+                label,
+                (x1 + pad, max(y1 - baseline - pad, th)),
+                font,
+                font_scale,
+                (255, 255, 255),
+                thickness,
+                cv2.LINE_AA,
+            )
+
+        return annotated
 
     def process_video(
         self,
