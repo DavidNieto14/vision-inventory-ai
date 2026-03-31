@@ -22,12 +22,15 @@ env/
 data/raw/*
 data/synthetic/*
 data/exports/*.csv
-data/inventory.db
+*.db
 
 # Modelos entrenados
-models/*.pt
-models/*.onnx
+*.pt
+*.onnx
 runs/
+
+# Claude Code local settings
+.claude/
 
 # Docker
 docker/.env
