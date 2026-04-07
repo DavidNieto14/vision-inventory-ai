@@ -164,14 +164,14 @@ class PieceDetector:
 
         return detections
 
-    # Colores BGR por categoría — saturados y brillantes
+    # Colores BGR por categoría — fosforescentes y brillantes
     _CATEGORY_COLORS: Dict[str, tuple] = {
-        "CONFORME":  (0, 255, 0),
+        "CONFORME":  (0, 255, 50),
         "VEC":       (0, 255, 255),
         "SCRAP":     (0, 0, 255),
-        "RETRABAJO": (0, 165, 255),
+        "RETRABAJO": (0, 140, 255),
     }
-    _DEFAULT_COLOR: tuple = (255, 0, 255)  # magenta para clases desconocidas
+    _DEFAULT_COLOR: tuple = (0, 255, 50)  # verde fosforescente para clases desconocidas
 
     def visualize_detections(
         self,
@@ -183,45 +183,38 @@ class PieceDetector:
         Dibuja bounding boxes y etiquetas sobre el frame para cada detección.
 
         Para cada detección dibuja:
-        - Un rectángulo grueso (thickness=4) de color según la categoría.
-        - Un recuadro sólido opaco detrás de la etiqueta.
+        - Un rectángulo grueso (thickness=6) de color según la categoría.
+        - Un recuadro sólido opaco de 40px de alto detrás de la etiqueta.
         - El nombre de la categoría y el confidence score en texto grande.
 
         Args:
             frame: Array NumPy (H, W, 3) BGR original (no se modifica in-place).
             detections: Lista de dicts retornada por detect_frame().
             roi: Tupla opcional (x1, y1, x2, y2). Si se provee, dibuja el rectángulo
-                 del ROI en azul grueso con etiqueta en la esquina superior.
+                 del ROI en azul eléctrico grueso con etiqueta en la esquina superior.
 
         Returns:
             Nuevo frame anotado como numpy array (H, W, 3) BGR.
         """
         annotated = frame.copy()
 
-        # ── ROI: rectángulo azul grueso con etiqueta ─────────────────────────
+        # ── ROI: rectángulo azul eléctrico con etiqueta ──────────────────────
         if roi is not None:
             rx1, ry1, rx2, ry2 = (int(v) for v in roi)
-            roi_color = (255, 100, 0)  # azul BGR
-            cv2.rectangle(annotated, (rx1, ry1), (rx2, ry2), roi_color, thickness=4)
+            roi_color = (255, 80, 0)  # azul eléctrico BGR
+            cv2.rectangle(annotated, (rx1, ry1), (rx2, ry2), roi_color, thickness=5)
 
             roi_label = "ROI - Zona de deteccion"
             font = cv2.FONT_HERSHEY_SIMPLEX
-            (tw, th), baseline = cv2.getTextSize(roi_label, font, 0.8, 2)
-            pad = 6
-            cv2.rectangle(
-                annotated,
-                (rx1, ry1 - th - baseline - pad * 2),
-                (rx1 + tw + pad * 2, ry1),
-                roi_color,
-                thickness=-1,
-            )
+            # Fondo sólido azul, alto fijo 50px
+            cv2.rectangle(annotated, (rx1, ry1 - 50), (rx2, ry1), roi_color, thickness=-1)
             cv2.putText(
                 annotated, roi_label,
-                (rx1 + pad, ry1 - baseline - pad),
-                font, 0.8, (255, 255, 255), 2, cv2.LINE_AA,
+                (rx1 + 8, ry1 - 12),
+                font, 1.5, (255, 255, 255), 2, cv2.LINE_AA,
             )
 
-        # ── Bounding boxes con fondo sólido y texto grande ───────────────────
+        # ── Bounding boxes con fondo sólido 40px y texto grande ──────────────
         for det in detections:
             category = det["category_name"]
             conf = det["confidence"]
@@ -229,24 +222,18 @@ class PieceDetector:
             color = self._CATEGORY_COLORS.get(category, self._DEFAULT_COLOR)
 
             # Bounding box gruesa
-            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, thickness=4)
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, thickness=6)
 
-            # Fondo sólido opaco para el texto
+            # Fondo sólido opaco de 40px de alto sobre la bbox
             label = f"{category} {conf:.2f}"
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 1.8
-            thickness = 3
-            (tw, th), baseline = cv2.getTextSize(label, font, font_scale, thickness)
-
-            pad = 6
-            ty1 = max(y1 - th - baseline - pad * 2, 0)
-            ty2 = max(y1, ty1 + th + baseline + pad * 2)
-            cv2.rectangle(annotated, (x1, ty1), (x1 + tw + pad * 2, ty2), color, thickness=-1)
+            bg_y1 = max(y1 - 40, 0)
+            bg_y2 = y1
+            cv2.rectangle(annotated, (x1, bg_y1), (x2, bg_y2), color, thickness=-1)
 
             cv2.putText(
                 annotated, label,
-                (x1 + pad, ty2 - baseline - pad),
-                font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA,
+                (x1 + 4, max(y1 - 8, 32)),
+                cv2.FONT_HERSHEY_SIMPLEX, 2.0, (255, 255, 255), 3, cv2.LINE_AA,
             )
 
         return annotated
