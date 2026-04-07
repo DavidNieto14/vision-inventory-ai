@@ -23,6 +23,7 @@ data/raw/*
 data/synthetic/*
 data/exports/*.csv
 data/exports/*.jpg
+data/exports/*.mp4
 *.db
 
 # Modelos entrenados

@@ -164,13 +164,14 @@ class PieceDetector:
 
         return detections
 
-    # Colores BGR por categoría
+    # Colores BGR por categoría — saturados y brillantes
     _CATEGORY_COLORS: Dict[str, tuple] = {
-        "CONFORME": (0, 255, 0),
-        "VEC":      (0, 255, 255),
-        "SCRAP":    (0, 0, 255),
-        "RETRABAJO":(0, 165, 255),
+        "CONFORME":  (0, 255, 0),
+        "VEC":       (0, 255, 255),
+        "SCRAP":     (0, 0, 255),
+        "RETRABAJO": (0, 165, 255),
     }
+    _DEFAULT_COLOR: tuple = (255, 0, 255)  # magenta para clases desconocidas
 
     def visualize_detections(
         self,
@@ -182,83 +183,70 @@ class PieceDetector:
         Dibuja bounding boxes y etiquetas sobre el frame para cada detección.
 
         Para cada detección dibuja:
-        - Un rectángulo de color según la categoría.
-        - Un recuadro semitransparente detrás de la etiqueta.
-        - El nombre de la categoría y el confidence score.
+        - Un rectángulo grueso (thickness=4) de color según la categoría.
+        - Un recuadro sólido opaco detrás de la etiqueta.
+        - El nombre de la categoría y el confidence score en texto grande.
 
         Args:
             frame: Array NumPy (H, W, 3) BGR original (no se modifica in-place).
             detections: Lista de dicts retornada por detect_frame().
             roi: Tupla opcional (x1, y1, x2, y2). Si se provee, dibuja el rectángulo
-                 del ROI en azul sobre el frame anotado.
+                 del ROI en azul grueso con etiqueta en la esquina superior.
 
         Returns:
             Nuevo frame anotado como numpy array (H, W, 3) BGR.
         """
         annotated = frame.copy()
-        overlay = frame.copy()
 
-        # Dibujar ROI en azul antes de las bboxes
+        # ── ROI: rectángulo azul grueso con etiqueta ─────────────────────────
         if roi is not None:
             rx1, ry1, rx2, ry2 = (int(v) for v in roi)
-            # Rectángulo punteado: líneas discontinuas dibujadas manualmente
-            dash_len, gap_len = 12, 6
-            roi_color = (255, 80, 0)  # azul BGR
-            for side in ["top", "bottom", "left", "right"]:
-                if side == "top":
-                    pts = [(x, ry1) for x in range(rx1, rx2, dash_len + gap_len)]
-                    for sx in pts:
-                        cv2.line(annotated, sx, (min(sx[0] + dash_len, rx2), ry1), roi_color, 2)
-                elif side == "bottom":
-                    pts = [(x, ry2) for x in range(rx1, rx2, dash_len + gap_len)]
-                    for sx in pts:
-                        cv2.line(annotated, sx, (min(sx[0] + dash_len, rx2), ry2), roi_color, 2)
-                elif side == "left":
-                    pts = [(rx1, y) for y in range(ry1, ry2, dash_len + gap_len)]
-                    for sy in pts:
-                        cv2.line(annotated, sy, (rx1, min(sy[1] + dash_len, ry2)), roi_color, 2)
-                elif side == "right":
-                    pts = [(rx2, y) for y in range(ry1, ry2, dash_len + gap_len)]
-                    for sy in pts:
-                        cv2.line(annotated, sy, (rx2, min(sy[1] + dash_len, ry2)), roi_color, 2)
-            cv2.putText(annotated, "ROI", (rx1 + 4, ry1 - 6),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, roi_color, 1, cv2.LINE_AA)
-        overlay = annotated.copy()
+            roi_color = (255, 100, 0)  # azul BGR
+            cv2.rectangle(annotated, (rx1, ry1), (rx2, ry2), roi_color, thickness=4)
 
+            roi_label = "ROI - Zona de deteccion"
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            (tw, th), baseline = cv2.getTextSize(roi_label, font, 0.8, 2)
+            pad = 6
+            cv2.rectangle(
+                annotated,
+                (rx1, ry1 - th - baseline - pad * 2),
+                (rx1 + tw + pad * 2, ry1),
+                roi_color,
+                thickness=-1,
+            )
+            cv2.putText(
+                annotated, roi_label,
+                (rx1 + pad, ry1 - baseline - pad),
+                font, 0.8, (255, 255, 255), 2, cv2.LINE_AA,
+            )
+
+        # ── Bounding boxes con fondo sólido y texto grande ───────────────────
         for det in detections:
             category = det["category_name"]
             conf = det["confidence"]
             x1, y1, x2, y2 = (int(v) for v in det["bbox"])
-            color = self._CATEGORY_COLORS.get(category, (200, 200, 200))
+            color = self._CATEGORY_COLORS.get(category, self._DEFAULT_COLOR)
 
-            # Bounding box
-            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, thickness=2)
+            # Bounding box gruesa
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, thickness=4)
 
-            # Etiqueta con confidence
+            # Fondo sólido opaco para el texto
             label = f"{category} {conf:.2f}"
             font = cv2.FONT_HERSHEY_SIMPLEX
-            font_scale = 0.55
-            thickness = 1
+            font_scale = 1.8
+            thickness = 3
             (tw, th), baseline = cv2.getTextSize(label, font, font_scale, thickness)
 
-            # Recuadro semitransparente detrás del texto
-            pad = 3
-            tx1, ty1 = x1, max(y1 - th - baseline - pad * 2, 0)
-            tx2, ty2 = x1 + tw + pad * 2, max(y1, th + baseline + pad * 2)
-            cv2.rectangle(overlay, (tx1, ty1), (tx2, ty2), color, thickness=-1)
-            cv2.addWeighted(overlay, 0.35, annotated, 0.65, 0, annotated)
-            # Actualizar overlay para siguiente iteración
-            overlay = annotated.copy()
+            pad = 6
+            ty1 = max(y1 - th - baseline - pad * 2, 0)
+            ty2 = max(y1, ty1 + th + baseline + pad * 2)
+            cv2.rectangle(annotated, (x1, ty1), (x1 + tw + pad * 2, ty2), color, thickness=-1)
 
             cv2.putText(
-                annotated,
-                label,
-                (x1 + pad, max(y1 - baseline - pad, th)),
-                font,
-                font_scale,
-                (255, 255, 255),
-                thickness,
-                cv2.LINE_AA,
+                annotated, label,
+                (x1 + pad, ty2 - baseline - pad),
+                font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA,
             )
 
         return annotated

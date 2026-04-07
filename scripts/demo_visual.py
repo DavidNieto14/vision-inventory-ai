@@ -177,5 +177,77 @@ def main() -> None:
     print(f"{'─'*60}\n")
 
 
+def record_demo_video() -> None:
+    """
+    Procesa video_linea_01.mp4 y genera un video de demo con detecciones y ROI.
+
+    Escribe los primeros 480 frames anotados (20 s a 24 fps) en
+    data/exports/demo_deteccion.mp4 redimensionados a 1280x576.
+    El ROI se dibuja en todos los frames aunque no haya detecciones.
+    """
+    print("\n" + "=" * 60)
+    print("  RECORD DEMO VIDEO — vision-inventory-ai")
+    print("=" * 60)
+
+    cfg = cargar_model_cfg()
+
+    roi_cfg = cfg.get("roi", {})
+    roi = None
+    if roi_cfg.get("enabled", False):
+        roi = (roi_cfg["x1"], roi_cfg["y1"], roi_cfg["x2"], roi_cfg["y2"])
+        print(f"\n[ROI]   enabled=true  ({roi[0]},{roi[1]}) → ({roi[2]},{roi[3]})")
+
+    detector = PieceDetector(
+        model_path=cfg["model_path"],
+        conf_threshold=CONF_THRESHOLD,
+        device=cfg["device"],
+    )
+
+    video_path = RAW_DIR / "video_linea_01.mp4"
+    if not video_path.exists():
+        print(f"[ERROR] No se encontró: {video_path}")
+        sys.exit(1)
+
+    OUT_W, OUT_H = 1280, 576
+    MAX_FRAMES   = 480
+    OUT_FPS      = 24
+    out_path     = EXPORTS_DIR / "demo_deteccion.mp4"
+
+    cap = cv2.VideoCapture(str(video_path))
+    total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps   = cap.get(cv2.CAP_PROP_FPS)
+    w     = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    h     = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    print(f"\n[VIDEO] {video_path.name}  {w}×{h} @ {fps:.1f}fps — {total} frames")
+    print(f"[OUT]   {out_path.name}  {OUT_W}×{OUT_H} @ {OUT_FPS}fps — {MAX_FRAMES} frames\n")
+
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    writer = cv2.VideoWriter(str(out_path), fourcc, OUT_FPS, (OUT_W, OUT_H))
+
+    frame_number = 0
+    while frame_number < MAX_FRAMES:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        detections = detector.detect_frame(frame, roi=roi)
+        annotated  = draw_frame(frame, detections, roi=roi)
+        resized    = cv2.resize(annotated, (OUT_W, OUT_H))
+        writer.write(resized)
+
+        if frame_number % 50 == 0:
+            print(f"  frame {frame_number:03d}/{MAX_FRAMES}  det={len(detections)}")
+
+        frame_number += 1
+
+    cap.release()
+    writer.release()
+
+    size_mb = out_path.stat().st_size / (1024 * 1024)
+    print(f"\n[OK]  {out_path.name}  ({size_mb:.1f} MB)  —  {frame_number} frames escritos\n")
+
+
 if __name__ == "__main__":
     main()
+    record_demo_video()
