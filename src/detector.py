@@ -221,19 +221,22 @@ class PieceDetector:
             x1, y1, x2, y2 = (int(v) for v in det["bbox"])
             color = self._CATEGORY_COLORS.get(category, self._DEFAULT_COLOR)
 
-            # Bounding box gruesa
+            # Borde negro (halo) para contraste en cualquier fondo
+            cv2.rectangle(annotated, (x1-3, y1-3), (x2+3, y2+3), (0, 0, 0), thickness=8)
+            # Bounding box color categoría
             cv2.rectangle(annotated, (x1, y1), (x2, y2), color, thickness=6)
 
-            # Fondo sólido opaco de 40px de alto sobre la bbox
+            # Fondo sólido negro de 40px de alto sobre la bbox
             label = f"{category} {conf:.2f}"
             bg_y1 = max(y1 - 40, 0)
             bg_y2 = y1
-            cv2.rectangle(annotated, (x1, bg_y1), (x2, bg_y2), color, thickness=-1)
+            cv2.rectangle(annotated, (x1, bg_y1), (x2, bg_y2), (0, 0, 0), thickness=-1)
 
+            # Texto en verde fosforescente
             cv2.putText(
                 annotated, label,
                 (x1 + 4, max(y1 - 8, 32)),
-                cv2.FONT_HERSHEY_SIMPLEX, 2.0, (255, 255, 255), 3, cv2.LINE_AA,
+                cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 50), 3, cv2.LINE_AA,
             )
 
         return annotated
