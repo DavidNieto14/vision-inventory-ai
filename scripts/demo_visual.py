@@ -52,7 +52,8 @@ def draw_frame(
     roi: Optional[tuple] = None,
 ) -> np.ndarray:
     """
-    Dibuja el ROI, bounding boxes, y contador de detecciones.
+    Dibuja el ROI y bounding boxes sobre el frame a resolución original.
+    NO incluye el contador (se agregará después del resize).
     """
     annotated = frame.copy()
     overlay   = frame.copy()
@@ -97,9 +98,20 @@ def draw_frame(
             font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA,
         )
 
-    # ── Contador de detecciones en esquina inferior izquierda ──────
+    return annotated
+
+
+def add_counter(
+    frame: np.ndarray,
+    num_detections: int,
+) -> np.ndarray:
+    """
+    Agrega el contador de detecciones en la esquina inferior izquierda.
+    Se aplica DESPUÉS del resize para que el texto esté en escala correcta.
+    """
+    annotated = frame.copy()
     h, w = annotated.shape[:2]
-    counter_label = f"Detecciones: {len(detections)}"
+    counter_label = f"Detecciones: {num_detections}"
     font = cv2.FONT_HERSHEY_SIMPLEX
     (tw, th), baseline = cv2.getTextSize(counter_label, font, 2.5, 3)
     pad = 10
@@ -111,7 +123,6 @@ def draw_frame(
         (cx1 + pad, cy2 - baseline - pad),
         font, 2.5, (255, 255, 255), 3, cv2.LINE_AA,
     )
-
     return annotated
 
 
@@ -171,13 +182,15 @@ def main() -> None:
             )
             print(f"  frame {frame_number:06d} | det={len(detections):>2} | {resumen}")
 
+            # Orden correcto: visualizar en resolución original → resize → agregar contador
             annotated = draw_frame(frame, detections, roi=roi)
-            # Redimensionar a 50% para que las bboxes se vean más grandes en proporción
             resized = cv2.resize(annotated, None, fx=0.5, fy=0.5)
+            final = add_counter(resized, len(detections))
+
             idx       = len(saved) + 1
             out_name  = f"figura3_deteccion_{idx:02d}.jpg"
             out_path  = EXPORTS_DIR / out_name
-            cv2.imwrite(str(out_path), resized, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            cv2.imwrite(str(out_path), final, [cv2.IMWRITE_JPEG_QUALITY, 95])
             saved.append(out_path)
 
         frame_number += 1
@@ -250,7 +263,8 @@ def record_demo_video() -> None:
         detections = detector.detect_frame(frame, roi=roi)
         annotated  = draw_frame(frame, detections, roi=roi)
         resized    = cv2.resize(annotated, (OUT_W, OUT_H))
-        writer.write(resized)
+        final      = add_counter(resized, len(detections))
+        writer.write(final)
 
         if frame_number % 50 == 0:
             print(f"  frame {frame_number:03d}/{MAX_FRAMES}  det={len(detections)}")
