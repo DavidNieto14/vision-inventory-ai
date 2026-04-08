@@ -166,12 +166,30 @@ class PieceDetector:
 
     # Colores BGR por categoría — fosforescentes y brillantes
     _CATEGORY_COLORS: Dict[str, tuple] = {
+        # Clases personalizadas (industrial)
         "CONFORME":  (0, 255, 50),
         "VEC":       (0, 255, 255),
         "SCRAP":     (0, 0, 255),
         "RETRABAJO": (0, 140, 255),
+        # Clases COCO comunes — colores fosforescentes brillantes
+        "person":    (50, 200, 255),   # naranja neón
+        "tv":        (255, 255, 0),    # cian fosforescente
+        "chair":     (0, 255, 200),    # verde-cian
+        "truck":     (200, 0, 255),    # magenta-rojo
+        "car":       (0, 200, 255),    # naranja-amarillo
+        "bicycle":   (50, 255, 100),   # verde-lima
+        "bottle":    (200, 50, 255),   # magenta-violeta
+        "cup":       (255, 100, 200),  # rosa neón
+        "couch":     (100, 255, 200),  # cian-verde
+        "laptop":    (255, 200, 50),   # amarillo-naranja
+        "cell phone":(50, 100, 255),   # rojo-naranja
+        "bus":       (200, 255, 100),  # lima-verde
+        "motorcycle":(100, 150, 255),  # naranja
+        "potted plant":(100, 255, 50), # verde neón
+        "bed":       (255, 50, 150),   # magenta-rosa
+        "dining table":(100, 200, 255),# naranja-cian
     }
-    _DEFAULT_COLOR: tuple = (0, 255, 50)  # verde fosforescente para clases desconocidas
+    _DEFAULT_COLOR: tuple = (100, 255, 255)  # cian fosforescente para clases desconocidas
 
     def visualize_detections(
         self,
