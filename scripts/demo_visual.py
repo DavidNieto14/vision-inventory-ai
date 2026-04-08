@@ -238,7 +238,7 @@ def record_demo_video() -> None:
         sys.exit(1)
 
     OUT_W, OUT_H = 1280, 576
-    MAX_FRAMES   = 480
+    MAX_FRAMES   = 1440
     OUT_FPS      = 24
     out_path     = EXPORTS_DIR / "demo_deteccion.mp4"
 
