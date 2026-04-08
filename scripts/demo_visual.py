@@ -52,8 +52,7 @@ def draw_frame(
     roi: Optional[tuple] = None,
 ) -> np.ndarray:
     """
-    Dibuja el ROI en azul grueso y las bounding boxes con texto grande.
-    Texto escala 1.2, thickness=2. Bboxes thickness=3.
+    Dibuja el ROI, bounding boxes, y contador de detecciones.
     """
     annotated = frame.copy()
     overlay   = frame.copy()
@@ -97,6 +96,21 @@ def draw_frame(
             (x1 + pad, max(y1 - baseline - pad, th + pad)),
             font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA,
         )
+
+    # ── Contador de detecciones en esquina inferior izquierda ──────
+    h, w = annotated.shape[:2]
+    counter_label = f"Detecciones: {len(detections)}"
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    (tw, th), baseline = cv2.getTextSize(counter_label, font, 2.5, 3)
+    pad = 10
+    cx1, cy1 = 10, h - th - baseline - pad * 2
+    cx2, cy2 = 10 + tw + pad * 2, h - pad
+    cv2.rectangle(annotated, (cx1, cy1), (cx2, cy2), (0, 0, 0), thickness=-1)
+    cv2.putText(
+        annotated, counter_label,
+        (cx1 + pad, cy2 - baseline - pad),
+        font, 2.5, (255, 255, 255), 3, cv2.LINE_AA,
+    )
 
     return annotated
 
@@ -158,10 +172,12 @@ def main() -> None:
             print(f"  frame {frame_number:06d} | det={len(detections):>2} | {resumen}")
 
             annotated = draw_frame(frame, detections, roi=roi)
+            # Redimensionar a 50% para que las bboxes se vean más grandes en proporción
+            resized = cv2.resize(annotated, None, fx=0.5, fy=0.5)
             idx       = len(saved) + 1
             out_name  = f"figura3_deteccion_{idx:02d}.jpg"
             out_path  = EXPORTS_DIR / out_name
-            cv2.imwrite(str(out_path), annotated, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            cv2.imwrite(str(out_path), resized, [cv2.IMWRITE_JPEG_QUALITY, 95])
             saved.append(out_path)
 
         frame_number += 1
