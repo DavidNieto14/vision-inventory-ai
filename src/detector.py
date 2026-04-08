@@ -232,11 +232,11 @@ class PieceDetector:
             bg_y2 = y1 + 65
             cv2.rectangle(annotated, (x1, bg_y1), (x2, bg_y2), (0, 0, 0), thickness=-1)
 
-            # Texto blanco brillante dentro del bbox
+            # Texto magenta fosforescente dentro del bbox
             cv2.putText(
                 annotated, label,
                 (x1 + 4, y1 + 45),
-                cv2.FONT_HERSHEY_SIMPLEX, 2.5, (255, 255, 255), 4, cv2.LINE_AA,
+                cv2.FONT_HERSHEY_SIMPLEX, 2.5, (255, 0, 255), 4, cv2.LINE_AA,
             )
 
         return annotated
