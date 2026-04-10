@@ -182,15 +182,15 @@ def main() -> None:
             )
             print(f"  frame {frame_number:06d} | det={len(detections):>2} | {resumen}")
 
-            # Orden correcto: visualizar en resolución original → resize → agregar contador
+            # Visualizar en resolución original, luego recortar solo la zona del ROI
             annotated = draw_frame(frame, detections, roi=roi)
-            resized = cv2.resize(annotated, None, fx=0.5, fy=0.5)
-            final = add_counter(resized, len(detections))
+            rx1, ry1, rx2, ry2 = roi
+            frame_roi = annotated[ry1:ry2, rx1:rx2]
 
             idx       = len(saved) + 1
             out_name  = f"figura3_deteccion_{idx:02d}.jpg"
             out_path  = EXPORTS_DIR / out_name
-            cv2.imwrite(str(out_path), final, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            cv2.imwrite(str(out_path), frame_roi, [cv2.IMWRITE_JPEG_QUALITY, 95])
             saved.append(out_path)
 
         frame_number += 1
