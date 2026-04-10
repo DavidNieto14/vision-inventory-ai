@@ -239,22 +239,20 @@ class PieceDetector:
             x1, y1, x2, y2 = (int(v) for v in det["bbox"])
             color = self._CATEGORY_COLORS.get(category, self._DEFAULT_COLOR)
 
-            # Borde negro muy grueso (halo) para máximo contraste
-            cv2.rectangle(annotated, (x1-5, y1-5), (x2+5, y2+5), (0, 0, 0), thickness=12)
-            # Bounding box cian fosforescente — altamente visible en fondos oscuros
-            cv2.rectangle(annotated, (x1, y1), (x2, y2), (255, 255, 0), thickness=8)
+            # Halo negro exterior grueso para contraste en fondos claros
+            cv2.rectangle(annotated, (x1-4, y1-4), (x2+4, y2+4), (0, 0, 0), thickness=8)
+            # BBox de color de categoría encima
+            cv2.rectangle(annotated, (x1, y1), (x2, y2), color, thickness=5)
 
-            # Fondo sólido negro de 60px dentro del bbox en la parte superior
+            # Fondo sólido negro dentro del bbox
             label = f"{category} {conf:.2f}"
-            bg_y1 = y1 + 5
-            bg_y2 = y1 + 65
-            cv2.rectangle(annotated, (x1, bg_y1), (x2, bg_y2), (0, 0, 0), thickness=-1)
+            cv2.rectangle(annotated, (x1, y1+5), (x2, y1+70), (0, 0, 0), thickness=-1)
 
-            # Texto magenta fosforescente dentro del bbox
+            # Texto en color de la categoría dentro del bbox
             cv2.putText(
                 annotated, label,
-                (x1 + 4, y1 + 45),
-                cv2.FONT_HERSHEY_SIMPLEX, 2.5, (255, 0, 255), 4, cv2.LINE_AA,
+                (x1 + 8, y1 + 55),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.8, color, 3, cv2.LINE_AA,
             )
 
         return annotated
