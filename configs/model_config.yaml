@@ -1,7 +1,7 @@
 model_path: models/yolov8n.pt
-conf_threshold: 0.7
+conf_threshold: 0.5
 iou_threshold: 0.45
-device: cpu
+device: cuda
 img_size: 640
 class_names:
   0: CONFORME

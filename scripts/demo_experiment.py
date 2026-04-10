@@ -415,6 +415,10 @@ def main() -> None:
         for vf in video_files:
             print(f"    · {vf.name}")
 
+    # ── Excluir video_linea_02 para demo (reducir tiempo de ejecución) ────────
+    video_files = [vf for vf in video_files if vf.stem != "video_linea_02"]
+    print(f"  [DEMO] Procesando solo: {len(video_files)} videos (excluido video_linea_02)")
+
     # ── Baseline ──────────────────────────────────────────────────────────────
     print("\n[3/5] Cargando baseline del proceso manual (SCRUM-6)...")
     baseline = calcular_baseline()
