@@ -173,7 +173,7 @@ class PieceDetector:
         "RETRABAJO": (0, 140, 255),
         # Clases COCO comunes — colores fosforescentes brillantes
         "person":    (50, 200, 255),   # naranja neón
-        "tv":        (255, 255, 0),    # cian fosforescente
+        "tv":        (0, 0, 255),       # rojo brillante
         "chair":     (0, 255, 200),    # verde-cian
         "truck":     (200, 0, 255),    # magenta-rojo
         "car":       (0, 200, 255),    # naranja-amarillo
@@ -189,7 +189,7 @@ class PieceDetector:
         "bed":       (255, 50, 150),   # magenta-rosa
         "dining table":(100, 200, 255),# naranja-cian
     }
-    _DEFAULT_COLOR: tuple = (100, 255, 255)  # cian fosforescente para clases desconocidas
+    _DEFAULT_COLOR: tuple = (0, 0, 255)  # rojo brillante para clases desconocidas
 
     def visualize_detections(
         self,
