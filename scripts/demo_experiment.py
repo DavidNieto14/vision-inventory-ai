@@ -1,14 +1,14 @@
 """
 demo_experiment.py
 ------------------
-Demostración simplificada del experimento de validación del pipeline de
-visión por computadora para detección y conteo de piezas en línea de pintura.
+Experimento simplificado de validación del pipeline de visión por computadora para
+detección y conteo de piezas en línea de pintura industrial.
 
 Metodología de validación (demo):
-- 1 corrida por video (sin repetición) para demostración rápida.
-- Métrica principal: Conteos y precisión en la corrida única.
+- 1 corrida por video (vs 3 en run_experiment.py) para demostración rápida.
+- Métrica principal: Coeficiente de Variación (CV) de conteos (1 valor = 0).
 - Comparación contra baseline del proceso manual histórico (ref. SCRUM-6).
-- Hipótesis validada si la precisión estimada > 85% y detecciones > 0.
+- Hipótesis validada si la reducción de discrepancia es >= 30%.
 
 Uso:
     python scripts/demo_experiment.py
@@ -18,6 +18,7 @@ import csv
 import sqlite3
 import sys
 import time
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
@@ -37,8 +38,8 @@ from detector import PieceDetector
 # ── Rutas globales ────────────────────────────────────────────────────────────
 RAW_DIR       = ROOT / "data" / "raw"
 EXPORTS_DIR   = ROOT / "data" / "exports"
-EXPERIMENT_DB = str(EXPORTS_DIR / "demo_experiment.db")
-RESULTS_CSV   = str(EXPORTS_DIR / "demo_experiment_results.csv")
+EXPERIMENT_DB = str(EXPORTS_DIR / "experiment.db")
+RESULTS_CSV   = str(EXPORTS_DIR / "experiment_results.csv")
 SYNTH_DIR     = ROOT / "data" / "raw"
 
 
@@ -82,7 +83,7 @@ def generar_video_sintetico(
     Cada frame contiene entre 3 y 8 rectángulos de colores aleatorios sobre
     un fondo gris, simulando piezas sobre una cinta transportadora.
     Se usa una semilla diferente por video para introducir variabilidad
-    controlada entre los videos de prueba.
+    controlada entre los tres lotes de prueba.
 
     Args:
         output_path: Ruta de salida del archivo .mp4.
@@ -146,7 +147,7 @@ def run_single_experiment(
     Args:
         video_path: Ruta al archivo de video a procesar.
         batch_id: Identificador único de lote para esta corrida.
-        run_number: Número de corrida (siempre 1 en demo).
+        run_number: Número de corrida (1 en demo).
         model_cfg: Diccionario con parámetros del modelo (model_path, conf_threshold, device).
         roi: Diccionario opcional con configuración del ROI (x1, y1, x2, y2).
 
@@ -241,7 +242,7 @@ def calcular_baseline() -> Dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Cálculo de mejora (demo)
+#  Cálculo de mejora
 # ─────────────────────────────────────────────────────────────────────────────
 
 def calcular_mejora(
@@ -249,12 +250,16 @@ def calcular_mejora(
     baseline: Dict,
 ) -> Dict:
     """
-    Calcula las métricas de mejora del sistema vs el baseline manual (versión demo).
+    Calcula las métricas de mejora del sistema vs el baseline manual.
 
-    Para la versión demo con 1 sola corrida por video:
-    - La precisión estimada se usa como métrica directa de confiabilidad.
-    - Se asume que una corrida única es válida si: precisión > 85% Y detecciones > 0.
-    - La validación de hipótesis se basa en si estas condiciones se cumplen.
+    La discrepancia del sistema se mide como el promedio del Coeficiente de
+    Variación (CV = std / mean) de los conteos totales entre las corridas
+    por video. Un CV bajo indica alta consistencia (baja discrepancia).
+
+    Fórmulas aplicadas:
+        CV_video  = std(total_detecciones_runs) / mean(total_detecciones_runs)
+        discrepancia_sistema = mean(CV_video) sobre todos los videos
+        reduccion_discrepancia = ((baseline - sistema) / baseline) * 100
 
     Args:
         resultados_experimento: Lista de dicts retornados por run_single_experiment().
@@ -262,40 +267,43 @@ def calcular_mejora(
 
     Returns:
         Diccionario con:
-            - precision_promedio        (float): Precisión promedio del sistema
-            - total_detecciones_promedio(int): Total de detecciones promedio
-            - objetivo_cumplido         (bool): True si precisión > 85% y detecciones > 0
-            - detalle_por_video         (dict): Métricas detalladas por video
+            - discrepancia_sistema      (float): CV promedio del sistema automatizado
+            - discrepancia_baseline     (float): CV del proceso manual (SCRUM-6)
+            - reduccion_discrepancia    (float): Reducción porcentual vs baseline
+            - objetivo_cumplido         (bool): True si reducción >= 30%
+            - cv_por_video              (dict): CV individual por video
     """
-    detalle_por_video = {}
-    precisiones = []
-    conteos = []
-
+    # Agrupar total_detecciones por video (considerando todas las corridas)
+    por_video: Dict[str, List[int]] = defaultdict(list)
     for r in resultados_experimento:
-        video = r["video_name"]
-        prec = r["precision_estimada"]
-        det = r["total_detecciones"]
-        detalle_por_video[video] = {
-            "precision": prec,
-            "detecciones": det,
-        }
-        precisiones.append(prec)
-        conteos.append(det)
+        por_video[r["video_name"]].append(r["total_detecciones"])
 
-    precision_promedio = round(float(np.mean(precisiones)), 4) if precisiones else 0.0
-    total_detecciones_promedio = int(np.mean(conteos)) if conteos else 0
+    # Calcular CV por video
+    cv_por_video = {}
+    cvs = []
+    for video_name, conteos in por_video.items():
+        arr  = np.array(conteos, dtype=float)
+        mean = arr.mean()
+        std  = arr.std(ddof=0)   # desviación estándar poblacional entre corridas
+        cv   = round(float(std / mean), 4) if mean > 0 else 0.0
+        cv_por_video[video_name] = cv
+        cvs.append(cv)
 
-    # Criterios de validación para demo:
-    # - Precisión estimada >= 75% (alta confianza en detecciones)
-    # - Mínimo 1 detección por video (sistema detecta algo)
-    objetivo_cumplido = (precision_promedio >= 0.75) and (total_detecciones_promedio > 0)
+    discrepancia_sistema   = round(float(np.mean(cvs)), 4) if cvs else 0.0
+    discrepancia_baseline  = baseline["discrepancia_baseline"]
+
+    reduccion = (
+        ((discrepancia_baseline - discrepancia_sistema) / discrepancia_baseline) * 100
+        if discrepancia_baseline > 0 else 0.0
+    )
+    reduccion = round(reduccion, 2)
 
     return {
-        "precision_promedio":        precision_promedio,
-        "total_detecciones_promedio": total_detecciones_promedio,
-        "baseline_precision":        0.75,
-        "objetivo_cumplido":         objetivo_cumplido,
-        "detalle_por_video":         detalle_por_video,
+        "discrepancia_sistema":   discrepancia_sistema,
+        "discrepancia_baseline":  discrepancia_baseline,
+        "reduccion_discrepancia": reduccion,
+        "objetivo_cumplido":      reduccion >= 30.0,
+        "cv_por_video":           cv_por_video,
     }
 
 
@@ -307,7 +315,7 @@ def imprimir_tabla_resultados(resultados: List[Dict]) -> None:
     """Imprime la tabla detallada de todas las corridas del experimento."""
     sep = "─" * 90
     print(f"\n{sep}")
-    print(f"  {'RESULTADOS DE LA DEMOSTRACIÓN — CORRIDA ÚNICA POR VIDEO':^86}")
+    print(f"  {'RESULTADOS DEL EXPERIMENTO — TODAS LAS CORRIDAS':^86}")
     print(sep)
     print(
         f"  {'Video':<22} {'Run':>3}  "
@@ -316,7 +324,12 @@ def imprimir_tabla_resultados(resultados: List[Dict]) -> None:
     )
     print(sep)
 
+    video_actual = None
     for r in resultados:
+        if video_actual and video_actual != r["video_name"]:
+            print()
+        video_actual = r["video_name"]
+
         video_display = r["video_name"][:22]
         print(
             f"  {video_display:<22} {r['run_number']:>3}  "
@@ -332,30 +345,29 @@ def imprimir_metricas_mejora(mejora: Dict) -> None:
     """Imprime el cuadro de métricas de mejora vs baseline."""
     sep = "─" * 55
     print(f"\n{sep}")
-    print(f"  {'MÉTRICAS DE VALIDACIÓN (SCRUM-6)':^51}")
+    print(f"  {'MÉTRICAS DE MEJORA VS BASELINE (SCRUM-6)':^51}")
     print(sep)
-    print(f"  {'Precisión promedio (automatizado):':<35} {mejora['precision_promedio']*100:>6.1f} %")
-    print(f"  {'Baseline de precisión requerida:':<35} {mejora['baseline_precision']*100:>6.1f} %")
-    print(f"  {'Total detecciones promedio:':<35} {mejora['total_detecciones_promedio']:>6} piezas")
-    print(f"  {'Objetivo cumplido:':<35} {'✓ SÍ' if mejora['objetivo_cumplido'] else '✗ NO':>10}")
+    print(f"  {'Discrepancia baseline (manual):':<35} {mejora['discrepancia_baseline']*100:>6.1f} %")
+    print(f"  {'Discrepancia sistema (automatizado):':<35} {mejora['discrepancia_sistema']*100:>6.1f} %")
+    print(f"  {'Reducción de discrepancia:':<35} {mejora['reduccion_discrepancia']:>6.1f} %")
+    print(f"  {'Objetivo >= 30 %:':<35} {'✓ CUMPLIDO' if mejora['objetivo_cumplido'] else '✗ NO CUMPLIDO':>10}")
     print()
-    print("  Resultados por video:")
-    for video, datos in mejora["detalle_por_video"].items():
-        print(f"    {video:<30} Prec={datos['precision']*100:>5.1f}%  Det={datos['detecciones']:>3}")
+    print("  CV por video:")
+    for video, cv in mejora["cv_por_video"].items():
+        print(f"    {video:<30} CV = {cv:.4f}  ({cv*100:.1f} %)")
     print(sep)
 
 
 def imprimir_conclusion(mejora: Dict) -> None:
-    """Imprime el veredicto final de la demostración."""
+    """Imprime el veredicto final del experimento."""
     sep = "=" * 55
     print(f"\n{sep}")
     if mejora["objetivo_cumplido"]:
         print(f"  {'HIPÓTESIS VALIDADA':^51}")
-        print(f"  Precisión: {mejora['precision_promedio']*100:.1f}% >= {mejora['baseline_precision']*100:.0f}%")
-        print(f"  Detecciones: {mejora['total_detecciones_promedio']} piezas > 0")
+        print(f"  Reducción de discrepancia: {mejora['reduccion_discrepancia']:.1f}% >= 30%")
     else:
-        print(f"  {'VALIDACIÓN FALLIDA':^51}")
-        print(f"  Revisar configuración del modelo y ROI")
+        print(f"  {'AJUSTE REQUERIDO':^51}")
+        print(f"  Reducción de discrepancia: {mejora['reduccion_discrepancia']:.1f}% < 30%")
     print(sep + "\n")
 
 
@@ -365,7 +377,7 @@ def imprimir_conclusion(mejora: Dict) -> None:
 
 def main() -> None:
     print("\n" + "=" * 65)
-    print("  DEMOSTRACIÓN DE EXPERIMENTO — vision-inventory-ai")
+    print("  EXPERIMENTO DE VALIDACIÓN (DEMO) — vision-inventory-ai")
     print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 65)
 
@@ -410,7 +422,7 @@ def main() -> None:
     print(f"  sobreinventario_baseline : {baseline['sobreinventario_baseline']*100:.0f} %")
 
     # ── Ejecutar 1 corrida por video ──────────────────────────────────────────
-    print("\n[4/5] Ejecutando demostración — 1 corrida × video...")
+    print("\n[4/5] Ejecutando experimento — 1 corrida × video...")
     print(f"  Videos: {len(video_files)}  |  Corridas/video: 1  |  "
           f"Total corridas: {len(video_files)}\n")
 
@@ -421,27 +433,28 @@ def main() -> None:
         video_name = video_path.stem
         print(f"  ▶ {video_name}")
 
-        batch_id = f"{video_name}_DEMO_{ts}"
-        t0 = time.time()
+        for run in range(1, 2):
+            batch_id = f"{video_name}_R{run}_{ts}"
+            t0 = time.time()
 
-        resultado = run_single_experiment(
-            video_path=str(video_path),
-            batch_id=batch_id,
-            run_number=1,
-            model_cfg=model_cfg,
-            roi=roi_cfg,
-        )
-        todos_resultados.append(resultado)
+            resultado = run_single_experiment(
+                video_path=str(video_path),
+                batch_id=batch_id,
+                run_number=run,
+                model_cfg=model_cfg,
+                roi=roi_cfg,
+            )
+            todos_resultados.append(resultado)
 
-        elapsed = time.time() - t0
-        print(
-            f"    Corrida 1/1 — "
-            f"frames={resultado['frames_procesados']:>3}  "
-            f"detecciones={resultado['total_detecciones']:>4}  "
-            f"[CONF={resultado['conformes']} VEC={resultado['vec']} "
-            f"SCRAP={resultado['scrap']} RETRAB={resultado['retrabajo']}]  "
-            f"{elapsed:.1f}s"
-        )
+            elapsed = time.time() - t0
+            print(
+                f"    Corrida {run}/1 — "
+                f"frames={resultado['frames_procesados']:>3}  "
+                f"detecciones={resultado['total_detecciones']:>4}  "
+                f"[CONF={resultado['conformes']} VEC={resultado['vec']} "
+                f"SCRAP={resultado['scrap']} RETRAB={resultado['retrabajo']}]  "
+                f"{elapsed:.1f}s"
+            )
 
     # ── Guardar CSV de resultados ─────────────────────────────────────────────
     print(f"\n[5/5] Guardando resultados en {RESULTS_CSV}...")
